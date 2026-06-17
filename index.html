@@ -1,0 +1,1799 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기상 전선 & 온대 저기압 시뮬레이터</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons (SVG 기반 아이콘 사용을 위해 로드) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght=300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        /* Custom scrollbar for sidebar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col overflow-x-hidden">
+
+    <!-- 헤더 -->
+    <header class="bg-slate-800 border-b border-slate-700 py-4 px-6 flex flex-wrap justify-between items-center gap-4 shadow-lg sticky top-0 z-50">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-indigo-600 rounded-lg text-white shadow-md shadow-indigo-950/50">
+                <i data-lucide="wind" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-black tracking-tight text-white flex items-center gap-2">
+                    중학 과학 기상 전선 & 온대 저기압 시뮬레이터
+                    <span class="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-medium">대기 압축 마스터</span>
+                </h1>
+                <p class="text-xs text-slate-400">오개념 해결: 한랭·온난 전선 단면부터 온대 저기압의 통과 시 기상 변화까지 완전 정복</p>
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <button id="btn-tab-cold" onclick="switchFront('cold')" class="px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 shadow-md flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-500">
+                한랭 전선 (단면)
+            </button>
+            <button id="btn-tab-warm" onclick="switchFront('warm')" class="px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 shadow-md flex items-center gap-1.5 bg-slate-700 text-slate-300 hover:bg-slate-600">
+                온난 전선 (단면)
+            </button>
+            <button id="btn-tab-cyclone" onclick="switchFront('cyclone')" class="px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 shadow-md flex items-center gap-1.5 bg-slate-700 text-slate-300 hover:bg-slate-600">
+                <span class="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
+                온대 저기압 (평면 기상도)
+            </button>
+            <button id="btn-tab-quiz" onclick="openQuiz()" class="px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 bg-amber-600 text-white hover:bg-amber-500 flex items-center gap-1.5 shadow-md">
+                <i data-lucide="help-circle" class="w-4 h-4"></i>
+                개념 퀴즈
+            </button>
+        </div>
+    </header>
+
+    <!-- 메인 레이아웃 -->
+    <main class="flex-1 grid grid-cols-1 xl:grid-cols-4 gap-6 p-4 md:p-6 max-w-7xl mx-auto w-full">
+        
+        <!-- 왼쪽: 시뮬레이션 컨트롤 & 설명 (1/4 영역) -->
+        <div class="xl:col-span-1 flex flex-col gap-6">
+            
+            <!-- 실시간 정보 카드 -->
+            <div class="bg-slate-800/80 backdrop-blur border border-slate-700 rounded-xl p-5 shadow-lg relative overflow-hidden">
+                <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/5 rounded-full blur-xl pointer-events-none"></div>
+                
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <i data-lucide="info" class="w-3.5 h-3.5 text-blue-400"></i>
+                    현재 상태 분석
+                </h3>
+                <h2 id="info-front-title" class="text-2xl font-black text-blue-400 mb-2">한랭 전선 (Cold Front)</h2>
+                <p id="info-front-desc" class="text-sm text-slate-300 leading-relaxed min-h-[90px]">
+                    찬 기단이 따뜻한 기단 밑으로 빠르게 파고들면서 형성됩니다. 경사면이 급하여 따뜻한 공기가 강하게 상승해 적운형 구름을 만들고, 전선 뒤쪽의 좁은 지역에 소나기성 비를 내립니다.
+                </p>
+
+                <!-- 실시간 관측 미터 -->
+                <div class="mt-4 pt-4 border-t border-slate-700/50 space-y-3">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span id="label-meter-1" class="text-slate-400">전선면의 경사도</span>
+                            <span id="meter-slope" class="text-blue-400 font-bold">매우 급함 (약 1:50)</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                            <div id="bar-slope" class="bg-blue-500 h-full transition-all duration-500" style="width: 85%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span id="label-meter-2" class="text-slate-400">구름의 종류</span>
+                            <span id="meter-cloud" class="text-cyan-400 font-bold">적운형 (적란운)</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                            <div id="bar-cloud" class="bg-cyan-400 h-full transition-all duration-500" style="width: 90%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span id="label-meter-3" class="text-slate-400">강수 지역 및 강도</span>
+                            <span id="meter-rain" class="text-indigo-400 font-bold">전선 뒤 / 좁은 구역 소나기</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                            <div id="bar-rain" class="bg-indigo-400 h-full transition-all duration-500" style="width: 85%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 시뮬레이션 제어 패널 -->
+            <div class="bg-slate-800/80 backdrop-blur border border-slate-700 rounded-xl p-5 shadow-lg space-y-5">
+                <h3 class="text-sm font-bold text-white border-b border-slate-700 pb-2 flex items-center gap-1.5">
+                    <i data-lucide="sliders" class="w-4 h-4 text-emerald-400"></i>
+                    시뮬레이션 환경 제어
+                </h3>
+
+                <!-- 재생/정지 및 리셋 -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="btn-play" onclick="togglePlay()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-md">
+                        <i data-lucide="pause" id="icon-play" class="w-4 h-4"></i>
+                        <span id="text-play">일시정지</span>
+                    </button>
+                    <button onclick="resetSimulation()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-1.5 transition-colors border border-slate-600">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        재설정
+                    </button>
+                </div>
+
+                <!-- 속도 조절 슬라이더 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300 font-medium">시스템 전개/이동 속도</span>
+                        <span id="val-speed" class="text-emerald-400 font-bold">1.0x</span>
+                    </div>
+                    <input id="slide-speed" type="range" min="0.1" max="2.0" step="0.1" value="1.0" oninput="updateSpeed(this.value)" class="w-full accent-emerald-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <!-- 강수 강도 조절 슬라이더 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300 font-medium">강수 강도 및 밀도</span>
+                        <span id="val-intensity" class="text-emerald-400 font-bold font-black text-emerald-400 text-sm">강함 (확실하게 보임)</span>
+                    </div>
+                    <input id="slide-intensity" type="range" min="0.5" max="2.5" step="0.1" value="1.8" oninput="updateIntensity(this.value)" class="w-full accent-emerald-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <!-- 가이드라인 토글 옵션 -->
+                <div class="space-y-2.5 pt-2">
+                    <label class="flex items-center gap-2.5 cursor-pointer text-xs text-slate-300 hover:text-white select-none">
+                        <input id="chk-wind-vector" type="checkbox" checked onchange="toggleGuide('wind')" class="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 bg-slate-700 w-4 h-4">
+                        기류 및 바람 방향 표시
+                    </label>
+                    <label class="flex items-center gap-2.5 cursor-pointer text-xs text-slate-300 hover:text-white select-none">
+                        <input id="chk-temp-zone" type="checkbox" checked onchange="toggleGuide('temp')" class="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 bg-slate-700 w-4 h-4">
+                        기단 영역 온도 필터 시각화
+                    </label>
+                    <label class="flex items-center gap-2.5 cursor-pointer text-xs text-slate-300 hover:text-white select-none">
+                        <input id="chk-annotations" type="checkbox" checked onchange="toggleGuide('anno')" class="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 bg-slate-700 w-4 h-4">
+                        수업용 상세 가이드 텍스트 표시
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 오른쪽: 캔버스 및 시각화 영역 (3/4 영역) -->
+        <div class="xl:col-span-3 flex flex-col gap-6">
+            
+            <!-- 메인 캔버스 카드 -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg flex flex-col relative overflow-hidden">
+                <!-- 범례(Legend) 및 가이드 오버레이 (동적 교체) -->
+                <div id="legend-normal" class="absolute top-6 left-6 z-10 flex flex-wrap gap-2.5 pointer-events-none">
+                    <div class="bg-blue-500/20 text-blue-300 text-xs px-2.5 py-1 rounded-full border border-blue-500/30 backdrop-blur font-bold flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span> 찬 기단 (Cold Air)
+                    </div>
+                    <div class="bg-red-500/20 text-red-300 text-xs px-2.5 py-1 rounded-full border border-red-500/30 backdrop-blur font-bold flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-red-500"></span> 따뜻한 기단 (Warm Air)
+                    </div>
+                    <div class="bg-slate-700/60 text-slate-300 text-xs px-2.5 py-1 rounded-full border border-slate-600 backdrop-blur font-bold flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-slate-400"></span> 전선면 (Frontal Surface)
+                    </div>
+                </div>
+
+                <!-- 온대 저기압 전용 범례 -->
+                <div id="legend-cyclone" class="absolute top-6 left-6 z-10 flex flex-wrap gap-2.5 pointer-events-none hidden">
+                    <div class="bg-indigo-500/20 text-indigo-300 text-xs px-2.5 py-1 rounded-full border border-indigo-500/30 backdrop-blur font-bold flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 bg-yellow-400 rounded-full"></span> 저기압 중심 L
+                    </div>
+                    <div class="bg-blue-500/20 text-blue-300 text-xs px-2.5 py-1 rounded-full border border-blue-500/30 backdrop-blur font-bold flex items-center gap-1">
+                        ▲ 한랭 전선선
+                    </div>
+                    <div class="bg-red-500/20 text-red-300 text-xs px-2.5 py-1 rounded-full border border-red-500/30 backdrop-blur font-bold flex items-center gap-1">
+                        ● 온난 전선선
+                    </div>
+                </div>
+
+                <!-- 미니 도구 모음 -->
+                <div class="absolute top-6 right-6 z-10 flex items-center gap-2">
+                    <button onclick="changePrecipType('rain')" id="btn-precip-rain" class="px-2.5 py-1 rounded-md text-xs font-bold transition-all bg-indigo-600 text-white shadow">비 (Rain)</button>
+                    <button onclick="changePrecipType('snow')" id="btn-precip-snow" class="px-2.5 py-1 rounded-md text-xs font-bold transition-all bg-slate-700 text-slate-300 hover:bg-slate-600">눈 (Snow)</button>
+                </div>
+
+                <!-- 애니메이션 영역 -->
+                <div class="relative w-full aspect-[16/9] md:aspect-[21/9] bg-gradient-to-b from-sky-950 via-slate-900 to-amber-950/20 rounded-lg overflow-hidden border border-slate-700/50">
+                    <canvas id="simulation-canvas" class="w-full h-full block cursor-crosshair"></canvas>
+                    
+                    <!-- 지상 관측소 실시간 기상 상태 HTML 오버레이 (기압 항목 제거됨) -->
+                    <div id="station-hud" class="absolute bottom-12 left-4 bg-slate-950/95 border-2 border-indigo-500/80 p-3.5 rounded-xl w-64 shadow-2xl text-xs space-y-2 hidden transition-all duration-300 z-20 backdrop-blur-sm">
+                        <div class="text-center font-black text-indigo-300 border-b border-slate-800 pb-1.5 mb-1.5 flex items-center justify-center gap-1.5">
+                            <span class="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse"></span>
+                            지상 관측소 실시간 기상 상태
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">현재 위치:</span>
+                            <span id="hud-location" class="font-bold text-sky-400">C 구역 (전선 앞쪽)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">관측 풍향:</span>
+                            <span id="hud-wind" class="font-bold text-slate-200">남동풍 (SE) ➔</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">현재 기온:</span>
+                            <span id="hud-temp" class="font-bold text-rose-400">낮음 (7°C)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">현재 날씨:</span>
+                            <span id="hud-weather" class="font-bold text-cyan-300">지속적인 비 / 난층운</span>
+                        </div>
+                    </div>
+
+                    <!-- 전선 기호 실시간 표시 -->
+                    <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-3 text-xs shadow-lg">
+                        <span class="text-slate-400 font-bold">지상 전선 기호:</span>
+                        <div id="front-symbol-container" class="flex items-center h-6">
+                            <!-- JS에서 한랭/온난 기호 렌더링 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 터치/드래그 안내 -->
+                <div id="drag-guide" class="mt-2 text-center text-xs text-slate-400 flex items-center justify-center gap-1">
+                    <i data-lucide="hand" class="w-3.5 h-3.5"></i>
+                    마우스로 화면을 드래그하여 전선 위치를 실시간으로 조절해 기단의 세력 교체를 실험해 보세요.
+                </div>
+            </div>
+
+            <!-- 하단 정보 패널: 온대 저기압 각 구역 비교 분석 (동적 표시) -->
+            <div id="panel-cyclone-table" class="bg-indigo-950/40 border border-indigo-900/50 rounded-xl p-5 shadow-lg hidden">
+                <h3 class="text-base font-bold text-indigo-300 mb-3 flex items-center gap-2">
+                    <i data-lucide="compass" class="w-5 h-5"></i>
+                    온대 저기압 구역별(A, B, C) 기상 현상 전격 비교
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-blue-950/30 border border-blue-900/40 p-4 rounded-lg">
+                        <div class="font-bold text-blue-400 text-sm mb-2 flex items-center gap-1">
+                            <span class="bg-blue-600 text-white w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">A</span>
+                            한랭 전선 뒤편 (서쪽)
+                        </div>
+                        <ul class="text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                            <li>• <strong class="text-blue-300">풍향:</strong> 북서풍 (NW)</li>
+                            <li>• <strong class="text-blue-300">기온:</strong> 매우 낮음 (찬 기단 지배)</li>
+                            <li>• <strong class="text-blue-300">구름/날씨:</strong> 적란운 / 강한 소나기</li>
+                        </ul>
+                    </div>
+                    <div class="bg-amber-950/30 border border-amber-900/40 p-4 rounded-lg">
+                        <div class="font-bold text-amber-400 text-sm mb-2 flex items-center gap-1">
+                            <span class="bg-amber-600 text-white w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">B</span>
+                            두 전선 사이 (남쪽)
+                        </div>
+                        <ul class="text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                            <li>• <strong class="text-amber-300">풍향:</strong> 남서풍 (SW)</li>
+                            <li>• <strong class="text-amber-300">기온:</strong> 매우 따뜻함 (따뜻한 기단 지배)</li>
+                            <li>• <strong class="text-amber-300">구름/날씨:</strong> 구름이 거의 없음 / 맑음</li>
+                        </ul>
+                    </div>
+                    <div class="bg-sky-950/30 border border-sky-900/40 p-4 rounded-lg">
+                        <div class="font-bold text-sky-400 text-sm mb-2 flex items-center gap-1">
+                            <span class="bg-sky-600 text-white w-5 h-5 rounded-full inline-flex items-center justify-center text-xs">C</span>
+                            온난 전선 앞쪽 (동쪽)
+                        </div>
+                        <ul class="text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                            <li>• <strong class="text-sky-300">풍향:</strong> 남동풍 (SE)</li>
+                            <li>• <strong class="text-sky-300">기온:</strong> 낮음 (찬 기단 지배)</li>
+                            <li>• <strong class="text-sky-300">구름/날씨:</strong> 층운형(난층운) / 지속적인 비</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panel-general-table" class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg">
+                <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="grid" class="w-5 h-5 text-indigo-400"></i>
+                    중학 과학 교과 핵심 요약: 한랭 전선 vs 온난 전선
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-slate-300">
+                        <thead class="text-xs uppercase bg-slate-700 text-slate-200">
+                            <tr>
+                                <th scope="col" class="px-4 py-3 rounded-l-lg">구분</th>
+                                <th scope="col" class="px-4 py-3 text-blue-400">한랭 전선 (Cold Front)</th>
+                                <th scope="col" class="px-4 py-3 text-orange-400 rounded-r-lg">온난 전선 (Warm Front)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            <tr class="hover:bg-slate-750/50">
+                                <th class="px-4 py-3 font-semibold text-slate-200">기단의 이동</th>
+                                <td class="px-4 py-3">찬 기단이 따뜻한 기단 쪽으로 이동</td>
+                                <td class="px-4 py-3">따뜻한 기단이 찬 기단 쪽으로 이동</td>
+                            </tr>
+                            <tr class="hover:bg-slate-750/50">
+                                <th class="px-4 py-3 font-semibold text-slate-200">기단 경계면 경사</th>
+                                <td class="px-4 py-3">**경사가 급함** (찬 공기가 아래를 급히 파고듦)</td>
+                                <td class="px-4 py-3">**경사가 완만함** (따뜻한 공기가 위를 타고 오름)</td>
+                            </tr>
+                            <tr class="hover:bg-slate-750/50">
+                                <th class="px-4 py-3 font-semibold text-slate-200">발달하는 구름</th>
+                                <td class="px-4 py-3">**적운형 구름 (적란운)** ➔ 좁고 높게 발달</td>
+                                <td class="px-4 py-3">**층운형 구름 (난층운 등)** ➔ 넓고 낮게 분포</td>
+                            </tr>
+                            <tr class="hover:bg-slate-750/50">
+                                <th class="px-4 py-3 font-semibold text-slate-200">강수 구역 및 형태</th>
+                                <td class="px-4 py-3" class="text-blue-300 font-bold">**전선 뒤쪽, 좁은 구역**에 **소나기**</td>
+                                <td class="px-4 py-3" class="text-orange-300 font-bold">**전선 앞쪽, 넓은 구역**에 **지속적인 비(이슬비)**</td>
+                            </tr>
+                            <tr class="hover:bg-slate-750/50">
+                                <th class="px-4 py-3 font-semibold text-slate-200">통과 후 변화</th>
+                                <td class="px-4 py-3">**기온 하강**, 기압 상승, 풍향 변화(남서➔북서)</td>
+                                <td class="px-4 py-3">**기온 상승**, 기압 하강, 풍향 변화(남동➔남서)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="bg-slate-950 py-4 px-6 border-t border-slate-800 text-center text-xs text-slate-500 mt-auto">
+        <p>© 2026 중등 지구과학 교육용 기상 전선 & 온대 저기압 시뮬레이터. 교실 수업 활용 최적화.</p>
+    </footer>
+
+    <!-- 개념 퀴즈 모달 -->
+    <div id="quiz-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-lg w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+            <!-- 모달 헤더 -->
+            <div class="bg-slate-700/50 px-6 py-4 border-b border-slate-600 flex justify-between items-center">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i data-lucide="award" class="text-amber-400"></i>
+                    기상 전선 & 온대 저기압 최종 도전 퀴즈
+                </h3>
+                <button onclick="closeQuiz()" class="text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <!-- 모달 바디 -->
+            <div class="p-6 space-y-4">
+                <div id="quiz-setup">
+                    <p class="text-sm text-slate-300 mb-4">한랭·온난 전선과 온대 저기압 각 구역의 바람, 기온, 날씨 변화에 관한 기출 핵심 개념을 복습해 봅시다!</p>
+                    <button onclick="startQuiz()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                        퀴즈 시작하기
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <div id="quiz-question-container" class="hidden">
+                    <div class="flex justify-between items-center text-xs text-slate-400 mb-2">
+                        <span id="quiz-progress">문제 1 / 4</span>
+                        <span id="quiz-score" class="text-amber-400">점수: 0</span>
+                    </div>
+                    <h4 id="quiz-question" class="text-base font-bold text-white mb-4">이곳에 문제가 들어갑니다.</h4>
+                    
+                    <div id="quiz-options" class="space-y-2">
+                        <!-- 옵션들이 들어갈 자리 -->
+                    </div>
+
+                    <div id="quiz-feedback" class="mt-4 p-3 rounded-lg hidden">
+                        <!-- 정답/오답 해설 피드백 -->
+                    </div>
+
+                    <button id="btn-next-quiz" onclick="nextQuizQuestion()" class="w-full mt-4 bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold py-2.5 px-4 rounded-lg transition-colors hidden">
+                        다음 문제로 넘어가기
+                    </button>
+                </div>
+
+                <div id="quiz-result-container" class="hidden text-center space-y-4 py-4">
+                    <div class="w-16 h-16 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto border border-amber-500/20">
+                        <i data-lucide="trophy" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white">퀴즈 완료!</h3>
+                    <p id="quiz-final-score" class="text-slate-300">최종 점수: 4문제 중 4문제 맞춤!</p>
+                    <button onclick="resetQuiz()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                        다시 도전하기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 로직 시작 -->
+    <script>
+        // --- 1. 초기 전역 상태 및 자원 정의 ---
+        const canvas = document.getElementById('simulation-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let currentFront = 'cold'; // 'cold', 'warm', 'cyclone'
+        let isPlaying = true;
+        let speedMultiplier = 1.0;
+        let densityMultiplier = 1.8; 
+        let precipitationType = 'rain'; // 'rain' 또는 'snow'
+
+        // 가이드 및 오버레이 활성 여부
+        let showWind = true;
+        let showTemp = true;
+        let showAnno = true;
+
+        // 전선 위치 변수 (0 ~ 1 범위, 캔버스의 x축 상대 비율)
+        let frontPositionX = 0.45; 
+        let targetFrontPositionX = 0.45;
+        let isDragging = false;
+
+        // 입자(Particle) 저장 배열들
+        let windParticles = [];
+        let cloudParticles = [];
+        let rainParticles = [];
+
+        // --- 2. 캔버스 및 디바이스 픽셀 비율 대응 설정 ---
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+
+        // --- 3. 입자(Particle) 클래스 설계 ---
+        
+        // 3.1 바람 / 공기 기류 입자 (기류 방향 가이드용)
+        class WindParticle {
+            constructor(type) {
+                this.type = type; // 'cold' 또는 'warm'
+                this.reset();
+                this.x = Math.random() * canvas.getBoundingClientRect().width;
+            }
+
+            reset() {
+                const rect = canvas.getBoundingClientRect();
+                this.type = (Math.random() > 0.5) ? 'cold' : 'warm';
+                
+                if (currentFront === 'cold') {
+                    if (this.type === 'cold') {
+                        this.x = -20;
+                        this.y = rect.height - Math.random() * (rect.height * 0.35);
+                        this.vx = (2.2 + Math.random() * 1.8) * speedMultiplier;
+                        this.vy = 0.1 * speedMultiplier;
+                    } else {
+                        this.x = frontPositionX * rect.width + Math.random() * (rect.width * 0.3);
+                        this.y = rect.height - Math.random() * (rect.height * 0.75) - 10;
+                        this.vx = (0.3 + Math.random() * 0.7) * speedMultiplier;
+                        this.vy = - (1.2 + Math.random() * 1.5) * speedMultiplier; 
+                    }
+                } else if (currentFront === 'warm') {
+                    if (this.type === 'cold') {
+                        this.x = frontPositionX * rect.width + Math.random() * (rect.width * (1 - frontPositionX));
+                        this.y = rect.height - Math.random() * (rect.height * 0.35);
+                        this.vx = 0.15 * speedMultiplier;
+                        this.vy = 0;
+                    } else {
+                        this.x = -20;
+                        this.y = rect.height - Math.random() * (rect.height * 0.3) - 30;
+                        this.vx = (1.8 + Math.random() * 1.5) * speedMultiplier;
+                        this.vy = -0.35 * speedMultiplier;
+                    }
+                } else {
+                    // ★ 온대 저기압 평면 모드: 저기압 중심으로 기류가 나선형(반시계 방향)으로 흘러 들어감
+                    const L_x = frontPositionX * rect.width;
+                    const L_y = rect.height * 0.35;
+                    
+                    // 저기압 중심 주변 원형 분포로 초기 생성
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 100 + Math.random() * (rect.width * 0.5);
+                    this.x = L_x + Math.cos(angle) * radius;
+                    this.y = L_y + Math.sin(angle) * radius;
+                    
+                    // 기단에 따른 파티클 색상 분기 (A, C구역은 찬공기, B구역은 따뜻한공기)
+                    const sector = getSectorAt(this.x, rect);
+                    this.type = (sector === 'B') ? 'warm' : 'cold';
+                    
+                    this.vx = 0;
+                    this.vy = 0;
+                }
+
+                this.life = 1.0;
+                this.decay = 0.005 + Math.random() * 0.008;
+                this.size = 1.8 + Math.random() * 1.8;
+            }
+
+            update(rect) {
+                if (currentFront === 'cold') {
+                    if (this.type === 'warm') {
+                        const boundaryX = frontPositionX * rect.width;
+                        const distToBoundary = Math.abs(this.x - boundaryX);
+                        if (distToBoundary < 140 && this.y > rect.height * 0.15) {
+                            this.vy -= 0.35 * speedMultiplier; 
+                            this.vx *= 0.9;
+                        }
+                    }
+                } else if (currentFront === 'warm') {
+                    if (this.type === 'warm') {
+                        const slope = 0.28; 
+                        const boundaryX = frontPositionX * rect.width;
+                        const targetY = rect.height - (this.x - boundaryX) * slope - 25;
+                        if (this.x > boundaryX && this.y > targetY - 25) {
+                            this.vy = - (Math.abs(this.vx) * slope) * 0.95;
+                        }
+                    }
+                } else {
+                    // ★ 온대 저기압 반시계 방향 나선 수렴 운동 구현 (수업 시 극단적 이해를 돕는 정교한 벡터 연산)
+                    const L_x = frontPositionX * rect.width;
+                    const L_y = rect.height * 0.35;
+                    
+                    const dx = this.x - L_x;
+                    const dy = this.y - L_y;
+                    const r = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (r < 15 || r > rect.width * 0.75) {
+                        this.reset();
+                        return;
+                    }
+                    
+                    // 회전각도 및 회전력
+                    let theta = Math.atan2(dy, dx);
+                    // 반시계 방향 스파이럴 수렴식 계산
+                    theta -= (0.045 * (1 + (200 / (r + 100)))) * speedMultiplier;
+                    const newR = r - (2.0 * speedMultiplier);
+                    
+                    this.x = L_x + Math.cos(theta) * newR;
+                    this.y = L_y + Math.sin(theta) * newR;
+                    
+                    // 기단 색상 업데이트
+                    const sector = getSectorAt(this.x, rect);
+                    this.type = (sector === 'B') ? 'warm' : 'cold';
+                }
+
+                if (currentFront !== 'cyclone') {
+                    this.x += this.vx * speedMultiplier;
+                    this.y += this.vy * speedMultiplier;
+                }
+                this.life -= this.decay;
+
+                if (this.life <= 0 || this.x > rect.width || this.y < 0 || this.y > rect.height) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                if (!showWind) return;
+                ctx.save();
+                ctx.globalAlpha = this.life * 0.75;
+                ctx.fillStyle = this.type === 'cold' ? 'rgba(56, 189, 248, 0.95)' : 'rgba(248, 113, 113, 0.95)';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 3.2 구름 입자
+        class CloudParticle {
+            constructor(type, x, y, size) {
+                this.type = type; // 'cumulus' (적운형) or 'stratus' (층운형)
+                this.x = x;
+                this.y = y;
+                this.baseSize = size;
+                this.size = size * (0.8 + Math.random() * 0.4);
+                this.alpha = 0.01; 
+                this.targetAlpha = 0.28 + Math.random() * 0.35; 
+                this.life = 1.0;
+                this.decay = 0.001 + Math.random() * 0.002;
+                this.drift = (0.04 + Math.random() * 0.08) * speedMultiplier;
+                this.jitterX = (Math.random() - 0.5) * 0.25;
+                this.jitterY = (Math.random() - 0.5) * 0.15;
+            }
+
+            update() {
+                // 평면도에서는 바람에 맞춰 바람의 전체 흐름 방향으로 서서히 표류하도록 함
+                if (currentFront === 'cyclone') {
+                    this.x += (0.15 + Math.random() * 0.15) * speedMultiplier;
+                    this.y += (Math.random() - 0.5) * 0.1;
+                } else {
+                    this.x += this.drift + this.jitterX;
+                    this.y += this.jitterY;
+                }
+                if (this.alpha < this.targetAlpha) {
+                    this.alpha += 0.02;
+                }
+                this.life -= this.decay;
+                if (this.life < 0.25) {
+                    this.alpha = Math.max(0, this.alpha - 0.015);
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                let gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+                
+                if (this.type === 'cumulus') {
+                    gradient.addColorStop(0, 'rgba(105, 110, 120, 0.95)');
+                    gradient.addColorStop(0.7, 'rgba(210, 215, 225, 0.85)');
+                    gradient.addColorStop(1, 'rgba(240, 240, 240, 0)');
+                } else {
+                    gradient.addColorStop(0, 'rgba(130, 135, 145, 0.9)');
+                    gradient.addColorStop(0.7, 'rgba(220, 225, 230, 0.7)');
+                    gradient.addColorStop(1, 'rgba(200, 200, 200, 0)');
+                }
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 3.3 강수 입자
+        class RainParticle {
+            constructor(x, startY) {
+                this.x = x;
+                this.y = startY;
+                this.speed = (6.5 + Math.random() * 5.5) * speedMultiplier;
+                this.length = 12 + Math.random() * 12; 
+                this.width = 1.8 + Math.random() * 1.2; 
+                this.windAngle = currentFront === 'cold' ? 0.3 : 0.8; 
+
+                if (precipitationType === 'snow') {
+                    this.speed = (1.2 + Math.random() * 1.8) * speedMultiplier;
+                    this.length = 5 + Math.random() * 5; 
+                    this.width = this.length;
+                    this.wobble = Math.random() * Math.PI * 2;
+                }
+                
+                // ★ 온대 저기압 평면 모드에서의 강수는 '비구름 레이어 밑으로 떨어지는 3차원 투영 입자' 형태로 묘사
+                if (currentFront === 'cyclone') {
+                    this.speed = (3.5 + Math.random() * 3.0) * speedMultiplier;
+                    this.length = 6 + Math.random() * 6;
+                    this.width = 1.3 + Math.random() * 0.7;
+                    this.windAngle = -0.5; // 저기압 반시계 풍향에 알맞은 각도 보정
+                }
+            }
+
+            update(rect) {
+                this.y += this.speed;
+                if (precipitationType === 'rain') {
+                    this.x += this.windAngle;
+                } else if (currentFront !== 'cyclone') {
+                    this.wobble += 0.04;
+                    this.x += Math.sin(this.wobble) * 0.5 + 0.3;
+                }
+                
+                // 평면도 혹은 단면도 바닥에 닿으면 소멸
+                const finalY = currentFront === 'cyclone' ? rect.height - 30 : rect.height - 25;
+                return this.y > finalY;
+            }
+
+            draw() {
+                ctx.save();
+                if (precipitationType === 'rain') {
+                    if (currentFront === 'cold') {
+                        ctx.strokeStyle = 'rgba(100, 150, 255, 0.95)'; 
+                    } else if (currentFront === 'warm') {
+                        ctx.strokeStyle = 'rgba(130, 200, 255, 0.8)'; 
+                    } else {
+                        ctx.strokeStyle = 'rgba(150, 210, 255, 0.75)'; // 온대 저기압 비
+                    }
+                    ctx.lineWidth = this.width;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x + this.windAngle, this.y + this.length);
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        // --- 4. 시뮬레이터 입자 대량 초기화 ---
+        function initParticles() {
+            windParticles = [];
+            cloudParticles = [];
+            rainParticles = [];
+            
+            const rect = canvas.getBoundingClientRect();
+            for (let i = 0; i < 120; i++) {
+                windParticles.push(new WindParticle());
+            }
+        }
+
+        // --- 5. 구름 생성 알고리즘 (온대 저기압 평면 비구름층 생성 통합!) ---
+        function spawnClouds(rect) {
+            if (!isPlaying) return;
+
+            const baseRate = currentFront === 'cold' ? 3 : 2;
+            const spawnCount = Math.round(baseRate * densityMultiplier);
+
+            for (let i = 0; i < spawnCount; i++) {
+                if (currentFront === 'cold') {
+                    const frontX = frontPositionX * rect.width;
+                    const jitterX = (Math.random() - 0.25) * 60; 
+                    const cloudX = frontX + jitterX;
+                    
+                    const heightFactor = Math.random(); 
+                    const cloudY = rect.height - 35 - (heightFactor * (rect.height * 0.75));
+                    const cloudSize = (20 + Math.random() * 32) * (1 - heightFactor * 0.15);
+
+                    if (cloudY < rect.height * 0.8) {
+                        cloudParticles.push(new CloudParticle('cumulus', cloudX, cloudY, cloudSize));
+                    }
+                } else if (currentFront === 'warm') {
+                    const frontX = frontPositionX * rect.width;
+                    const maxSpan = rect.width * (1 - frontPositionX); 
+                    const travelRatio = Math.random(); 
+                    
+                    const cloudX = frontX + travelRatio * maxSpan;
+                    const slope = 0.28; 
+                    const boundaryY = rect.height - 30 - (travelRatio * maxSpan * slope);
+                    
+                    const cloudY = boundaryY - (Math.random() * 50 - 15);
+                    const cloudSize = (18 + Math.random() * 26) * (1.1 - travelRatio * 0.35);
+
+                    if (cloudY > 20 && cloudY < rect.height * 0.95) {
+                        cloudParticles.push(new CloudParticle('stratus', cloudX, cloudY, cloudSize));
+                    }
+                } else {
+                    // ★ 온대 저기압 평면 모드 구름 생성 로직:
+                    // - A 구역(한랭전선 서쪽 뒤): 폭이 좁고 빽빽한 두꺼운 층 (적운형 비구름)
+                    // - C 구역(온난전선 동쪽 앞): 폭이 넓은 평탄한 층 (층운형 비구름)
+                    // - B 구역(두 전선 사이): 구름이 생성되지 않음 (오개념 방지 고착화)
+                    const L_x = frontPositionX * rect.width;
+                    const L_y = rect.height * 0.35;
+                    
+                    if (Math.random() > 0.4) {
+                        // 1. 한랭 전선 뒤편 (소나기 구름 발달)
+                        // L_x 기준으로 남서쪽 라인 뒤쪽 부근에 스폰
+                        const t = Math.random(); // 전선선상 비율
+                        const fx = L_x - (rect.width * 0.22) * t;
+                        const fy = L_y + (rect.height * 0.45) * t;
+                        
+                        // 전선 뒤(서쪽, 즉 왼쪽으로 치우침)
+                        const cloudX = fx - (10 + Math.random() * 35);
+                        const cloudY = fy + (Math.random() - 0.5) * 30;
+                        const size = 18 + Math.random() * 18;
+                        
+                        cloudParticles.push(new CloudParticle('cumulus', cloudX, cloudY, size));
+                    } else {
+                        // 2. 온난 전선 앞편 (이슬비 구름 발달)
+                        // L_x 기준으로 남동쪽 라인 앞쪽 부근에 스폰
+                        const t = Math.random();
+                        const fx = L_x + (rect.width * 0.32) * t;
+                        const fy = L_y + (rect.height * 0.35) * t;
+                        
+                        // 전선 앞(동쪽, 즉 오른쪽으로 뻗어나감)
+                        const cloudX = fx + (10 + Math.random() * 95); // 더 넓은 구역
+                        const cloudY = fy - (10 + Math.random() * 30);
+                        const size = 15 + Math.random() * 15;
+                        
+                        cloudParticles.push(new CloudParticle('stratus', cloudX, cloudY, size));
+                    }
+                }
+            }
+
+            if (cloudParticles.length > 600) {
+                cloudParticles.splice(0, cloudParticles.length - 600);
+            }
+        }
+
+        // --- 6. 전선 형태별 정확한 강수 구역 연산 기법 ---
+        function spawnPrecipitation(rect) {
+            if (!isPlaying || cloudParticles.length < 15) return;
+
+            const rainRate = Math.round((currentFront === 'cold' ? 6 : 3) * densityMultiplier);
+            const boundaryX = frontPositionX * rect.width;
+
+            for (let i = 0; i < rainRate; i++) {
+                if (currentFront === 'cold') {
+                    const rainWidth = 90; 
+                    const spawnX = boundaryX - (Math.random() * rainWidth); 
+                    
+                    if (spawnX > 0 && spawnX < boundaryX) {
+                        const startY = rect.height * 0.2 + Math.random() * (rect.height * 0.3);
+                        rainParticles.push(new RainParticle(spawnX, startY));
+                    }
+                } else if (currentFront === 'warm') {
+                    const minDistance = 10; 
+                    const maxDistance = rect.width * 0.45; 
+                    const spawnX = boundaryX + minDistance + (Math.random() * (maxDistance - minDistance));
+                    
+                    if (spawnX > boundaryX && spawnX < rect.width) {
+                        const relativeOffset = spawnX - boundaryX;
+                        if (relativeOffset < rect.width * 0.35) {
+                            const cloudSlopeY = rect.height * 0.65 - relativeOffset * 0.25;
+                            const startY = Math.max(50, cloudSlopeY);
+                            if (startY < rect.height * 0.85) {
+                                rainParticles.push(new RainParticle(spawnX, startY));
+                            }
+                        }
+                    }
+                } else {
+                    // ★ 온대 저기압 모드 강수 구역 매핑 (A구역 소나기, C구역 지속적 비)
+                    const L_x = frontPositionX * rect.width;
+                    const L_y = rect.height * 0.35;
+                    
+                    // 1. A 구역 강수 (한랭전선 뒤 좁은 영역)
+                    if (Math.random() > 0.3) {
+                        const t = Math.random();
+                        const fx = L_x - (rect.width * 0.22) * t;
+                        const fy = L_y + (rect.height * 0.45) * t;
+                        
+                        const spawnX = fx - (10 + Math.random() * 30);
+                        const startY = fy - 15;
+                        
+                        if (spawnX > 0 && spawnX < rect.width) {
+                            rainParticles.push(new RainParticle(spawnX, startY));
+                        }
+                    }
+                    
+                    // 2. C 구역 강수 (온난전선 앞 넓은 영역)
+                    const t = Math.random();
+                    const fx = L_x + (rect.width * 0.32) * t;
+                    const fy = L_y + (rect.height * 0.35) * t;
+                    
+                    const spawnX = fx + (15 + Math.random() * 85);
+                    const startY = fy - 10;
+                    
+                    if (spawnX > 0 && spawnX < rect.width) {
+                        rainParticles.push(new RainParticle(spawnX, startY));
+                    }
+                }
+            }
+        }
+
+        // --- ★ 보조 수학: 온대 저기압 각 영역 판정 함수 ---
+        // 드래그 시 가상 지상 관측소의 날씨를 판독하기 위한 매우 핵심적인 구획 수학 식
+        function getSectorAt(x, rect) {
+            const L_x = frontPositionX * rect.width;
+            
+            // 전선선 X좌표 계산 기준 (지상 관측소 고도 Y = rect.height * 0.65 부근)
+            const coldFrontX = L_x - rect.width * 0.12; // 관측 고도 상의 한랭 전선 위치
+            const warmFrontX = L_x + rect.width * 0.22; // 관측 고도 상의 온난 전선 위치
+            
+            if (x < coldFrontX) {
+                return 'A'; // 한랭 전선 뒤편 (서쪽, 북서풍, 한랭)
+            } else if (x >= coldFrontX && x <= warmFrontX) {
+                return 'B'; // 전선 사이 (남쪽, 남서풍, 온난)
+            } else {
+                return 'C'; // 온난 전선 앞편 (동쪽, 남동풍, 한랭)
+            }
+        }
+
+        // --- 7. 메인 렌더링 루프 (Update & Draw) ---
+        function drawSimulation() {
+            const rect = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+            
+            const groundHeight = 25;
+            const renderGroundY = rect.height - groundHeight;
+            
+            frontPositionX += (targetFrontPositionX - frontPositionX) * 0.1;
+
+            if (currentFront !== 'cyclone') {
+                // 7.1 단면도 모드 배경 기단 색상 그리기
+                if (showTemp) {
+                    // 찬 공기 세력
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(0, rect.height);
+                    if (currentFront === 'cold') {
+                        const fx = frontPositionX * rect.width;
+                        ctx.lineTo(0, rect.height * 0.1);
+                        ctx.quadraticCurveTo(fx - 45, rect.height * 0.2, fx, renderGroundY);
+                    } else {
+                        const fx = frontPositionX * rect.width;
+                        ctx.lineTo(rect.width, rect.height * 0.22);
+                        ctx.lineTo(rect.width, renderGroundY);
+                        ctx.lineTo(fx, renderGroundY);
+                    }
+                    ctx.lineTo(0, renderGroundY);
+                    ctx.closePath();
+                    let blueGrad = ctx.createLinearGradient(0, 0, 0, rect.height);
+                    blueGrad.addColorStop(0, 'rgba(14, 165, 233, 0.12)');
+                    blueGrad.addColorStop(1, 'rgba(2, 132, 199, 0.32)');
+                    ctx.fillStyle = blueGrad;
+                    ctx.fill();
+                    ctx.restore();
+
+                    // 따뜻한 공기 세력
+                    ctx.save();
+                    ctx.beginPath();
+                    if (currentFront === 'cold') {
+                        const fx = frontPositionX * rect.width;
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(rect.width, 0);
+                        ctx.lineTo(rect.width, renderGroundY);
+                        ctx.lineTo(fx, renderGroundY);
+                        ctx.quadraticCurveTo(fx - 45, rect.height * 0.2, 0, rect.height * 0.1);
+                    } else {
+                        const fx = frontPositionX * rect.width;
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(rect.width, 0);
+                        ctx.lineTo(rect.width, rect.height * 0.22);
+                        ctx.lineTo(fx, renderGroundY);
+                        ctx.lineTo(0, renderGroundY);
+                    }
+                    ctx.closePath();
+                    let redGrad = ctx.createLinearGradient(0, 0, 0, rect.height);
+                    redGrad.addColorStop(0, 'rgba(239, 68, 68, 0.08)');
+                    redGrad.addColorStop(1, 'rgba(220, 38, 38, 0.24)');
+                    ctx.fillStyle = redGrad;
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // 7.2 단면도 모드 전선면 드로잉
+                ctx.save();
+                ctx.beginPath();
+                const fx = frontPositionX * rect.width;
+                if (currentFront === 'cold') {
+                    ctx.moveTo(0, rect.height * 0.1);
+                    ctx.quadraticCurveTo(fx - 45, rect.height * 0.2, fx, renderGroundY);
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)'; 
+                    ctx.shadowColor = '#0284c7';
+                } else {
+                    ctx.moveTo(rect.width, rect.height * 0.22);
+                    ctx.lineTo(fx, renderGroundY);
+                    ctx.strokeStyle = 'rgba(248, 113, 113, 0.85)'; 
+                    ctx.shadowColor = '#dc2626';
+                }
+                ctx.lineWidth = 4.5;
+                ctx.shadowBlur = 6;
+                ctx.stroke();
+                ctx.restore();
+
+            } else {
+                // ★ 온대 저기압 평면(기상도) 뷰 배경 그리기
+                const L_x = frontPositionX * rect.width;
+                const L_y = rect.height * 0.35;
+                
+                if (showTemp) {
+                    // 기단 온도 배경 투영 (A, C 찬 공기 영역 vs B 따뜻한 공기 영역)
+                    ctx.save();
+                    
+                    // 1. 전체 기본 한랭 지대 배경 (찬공기)
+                    ctx.fillStyle = 'rgba(14, 165, 233, 0.14)';
+                    ctx.fillRect(0, 0, rect.width, renderGroundY);
+                    
+                    // 2. 따뜻한 기단 영역 다각형 형성 (남쪽 전선 사이 B 구역)
+                    ctx.beginPath();
+                    ctx.moveTo(L_x, L_y);
+                    // 한랭 전선 커브 (남서쪽)
+                    ctx.lineTo(L_x - rect.width * 0.22, L_y + rect.height * 0.45);
+                    ctx.lineTo(L_x + rect.width * 0.32, L_y + rect.height * 0.35); // 온난 전선 끝선 연결
+                    ctx.closePath();
+                    
+                    let warmGrad = ctx.createRadialGradient(L_x + 50, L_y + 100, 20, L_x + 50, L_y + 100, rect.width * 0.3);
+                    warmGrad.addColorStop(0, 'rgba(239, 68, 68, 0.35)');
+                    warmGrad.addColorStop(1, 'rgba(220, 38, 38, 0.08)');
+                    ctx.fillStyle = warmGrad;
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // 등압선(Isobar) 동심원 드로잉 (저기압 효과)
+                ctx.save();
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+                ctx.lineWidth = 1.5;
+                for (let r = 50; r < rect.width * 0.6; r += 50) {
+                    ctx.beginPath();
+                    ctx.ellipse(L_x, L_y, r, r * 0.65, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                // 한랭 및 온난 전선 기상도 기호 직접 수식 드로잉
+                // 한랭 전선선 그리기 (남서쪽으로 뻗어 나감)
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(L_x, L_y);
+                const coldEndX = L_x - rect.width * 0.22;
+                const coldEndY = L_y + rect.height * 0.45;
+                ctx.lineTo(coldEndX, coldEndY);
+                ctx.strokeStyle = '#2563eb';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                
+                // 한랭 삼각기호 그리기 (진행 방향인 남동쪽/오른쪽 아래를 향함)
+                const segmentCount = 4;
+                for (let i = 1; i <= segmentCount; i++) {
+                    const t = (i - 0.5) / segmentCount;
+                    const px = L_x + (coldEndX - L_x) * t;
+                    const py = L_y + (coldEndY - L_y) * t;
+                    
+                    // 수평/수직 법선 벡터
+                    const dx = coldEndX - L_x;
+                    const dy = coldEndY - L_y;
+                    const len = Math.sqrt(dx*dx + dy*dy);
+                    const nx = (dy / len) * 11; // 수직 법선
+                    const ny = (-dx / len) * 11;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(px - (dx/len)*6, py - (dy/len)*6);
+                    ctx.lineTo(px + (dx/len)*6, py + (dy/len)*6);
+                    ctx.lineTo(px + nx, py + ny);
+                    ctx.closePath();
+                    ctx.fillStyle = '#2563eb';
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                // 온난 전선선 그리기 (남동쪽으로 뻗어 나감)
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(L_x, L_y);
+                const warmEndX = L_x + rect.width * 0.32;
+                const warmEndY = L_y + rect.height * 0.35;
+                ctx.lineTo(warmEndX, warmEndY);
+                ctx.strokeStyle = '#dc2626';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                // 온난 반원기호 그리기 (진행 방향인 북동쪽/오른쪽 위를 향함)
+                for (let i = 1; i <= segmentCount; i++) {
+                    const t = (i - 0.5) / segmentCount;
+                    const px = L_x + (warmEndX - L_x) * t;
+                    const py = L_y + (warmEndY - L_y) * t;
+                    
+                    const dx = warmEndX - L_x;
+                    const dy = warmEndY - L_y;
+                    const len = Math.sqrt(dx*dx + dy*dy);
+                    const nx = (-dy / len) * 6; // 반원 중심 이동용 법선
+                    const ny = (dx / len) * 6;
+                    
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.fillStyle = '#dc2626';
+                    // 진행 방향 벡터 기준 반원 그리기
+                    const angle = Math.atan2(ny, nx);
+                    ctx.arc(px, py, 6, angle, angle + Math.PI);
+                    ctx.fill();
+                    ctx.restore();
+                }
+                ctx.restore();
+
+                // 저기압 중심 심볼 그리기
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(L_x, L_y, 16, 0, Math.PI*2);
+                ctx.fillStyle = '#ef4444';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 16px Noto Sans KR';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('저', L_x, L_y);
+                ctx.restore();
+            }
+
+            // 7.3 기류 입자 업데이트 및 드로잉
+            if (isPlaying) {
+                windParticles.forEach(p => p.update(rect));
+            }
+            windParticles.forEach(p => p.draw());
+
+            // 7.4 구름 업데이트 및 드로잉
+            spawnClouds(rect);
+            if (isPlaying) {
+                cloudParticles.forEach(c => c.update());
+            }
+            cloudParticles = cloudParticles.filter(c => c.life > 0);
+            cloudParticles.forEach(c => c.draw());
+
+            // 7.5 강수 업데이트 및 드로잉
+            spawnPrecipitation(rect);
+            if (isPlaying) {
+                rainParticles = rainParticles.filter(r => !r.update(rect));
+            }
+            rainParticles.forEach(r => r.draw());
+
+            // 7.6 지표면 그리기
+            ctx.save();
+            let groundGrad = ctx.createLinearGradient(0, renderGroundY, 0, rect.height);
+            groundGrad.addColorStop(0, '#1c331c'); 
+            groundGrad.addColorStop(1, '#0b160b');
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(0, renderGroundY, rect.width, groundHeight);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.fillRect(0, renderGroundY, rect.width, 2); 
+            ctx.restore();
+
+            // 7.7 텍스트 주석 및 ★기단 온도 표시
+            if (showAnno) {
+                drawAnnotations(rect, renderGroundY);
+            }
+
+            requestAnimationFrame(drawSimulation);
+        }
+
+        // --- 8. 지면 위 교육용 주석 및 온대 저기압 세부 상태 HUD 렌더링 ---
+        function drawAnnotations(rect, groundY) {
+            ctx.save();
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+            ctx.shadowBlur = 6;
+            
+            function drawTemperatureBadge(temp, x, y, isCold) {
+                ctx.save();
+                const text = `기온: ${temp}°C`;
+                ctx.font = 'bold 13px Noto Sans KR';
+                const textWidth = ctx.measureText(text).width;
+                const padX = 12;
+                const padY = 6;
+                
+                ctx.fillStyle = isCold ? 'rgba(8, 47, 73, 0.85)' : 'rgba(69, 10, 10, 0.85)';
+                ctx.strokeStyle = isCold ? 'rgba(56, 189, 248, 0.8)' : 'rgba(248, 113, 113, 0.8)';
+                ctx.lineWidth = 1.5;
+                
+                const rx = x - textWidth/2 - padX;
+                const ry = y - 12 - padY;
+                const rw = textWidth + padX * 2;
+                const rh = 24 + padY * 2;
+                
+                ctx.beginPath();
+                ctx.roundRect(rx, ry, rw, rh, 6);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.fillStyle = isCold ? '#38bdf8' : '#f87171';
+                ctx.textAlign = 'center';
+                ctx.fillText(text, x, y);
+                ctx.restore();
+            }
+            
+            if (currentFront !== 'cyclone') {
+                // 기존 전선 단면 HUD
+                if (currentFront === 'cold') {
+                    drawTemperatureBadge(5, 120, groundY - 80, true);
+                    drawTemperatureBadge(22, rect.width - 150, groundY - 80, false);
+
+                    ctx.fillStyle = 'rgba(14, 165, 233, 0.95)';
+                    ctx.font = 'bold 12px Noto Sans KR';
+                    ctx.fillText('찬 기단 (Cold Air Mass)', 30, groundY - 45);
+                    ctx.fillText('이동 방향 ➔ (매우 빠름)', 30, groundY - 28);
+                    
+                    ctx.fillStyle = 'rgba(248, 113, 113, 0.95)';
+                    ctx.fillText('따뜻한 기단 (Warm Air Mass)', rect.width - 200, groundY - 45);
+                    ctx.fillText('찬 기단에 의해 급격히 밀려 상승', rect.width - 200, groundY - 28);
+
+                    ctx.fillStyle = 'rgba(224, 242, 254, 0.95)';
+                    const cloudX = frontPositionX * rect.width - 30;
+                    ctx.font = 'bold 12px Noto Sans KR';
+                    ctx.fillText('적란운 (Cumulonimbus)', cloudX - 10, rect.height * 0.2);
+                    ctx.font = '10px Noto Sans KR';
+                    ctx.fillText('상승기류가 강해 수직으로 발달', cloudX - 10, rect.height * 0.2 + 18);
+
+                    ctx.fillStyle = 'rgba(129, 140, 248, 1)';
+                    ctx.font = 'bold 12px Noto Sans KR';
+                    ctx.fillText('소나기 영역 (전선 뒤쪽, 좁은 구역)', frontPositionX * rect.width - 195, groundY - 145);
+                    ctx.font = '10px Noto Sans KR';
+                    ctx.fillText('✔ 찬 공기가 아래로 밀고 들어온 뒤쪽 구획', frontPositionX * rect.width - 195, groundY - 128);
+
+                } else {
+                    drawTemperatureBadge(6, rect.width - 120, groundY - 80, true);
+                    drawTemperatureBadge(21, 140, groundY - 80, false);
+
+                    ctx.fillStyle = 'rgba(14, 165, 233, 0.95)';
+                    ctx.font = 'bold 12px Noto Sans KR';
+                    ctx.fillText('찬 기단 (Cold Air Mass)', rect.width - 180, groundY - 45);
+                    ctx.fillText('이동 방향 ➔ (느림 / 정체 상태)', rect.width - 180, groundY - 28);
+
+                    ctx.fillStyle = 'rgba(248, 113, 113, 0.95)';
+                    ctx.fillText('따뜻한 기단 (Warm Air Mass)', 30, groundY - 45);
+                    ctx.fillText('찬 공기 경사면을 타고 완만하게 상승 ➔', 30, groundY - 28);
+
+                    ctx.fillStyle = 'rgba(224, 242, 254, 0.95)';
+                    const startX = frontPositionX * rect.width;
+                    const offsetSpan = rect.width * (1 - frontPositionX);
+                    
+                    ctx.font = 'bold 11px Noto Sans KR';
+                    ctx.fillText('난층운 (Nimbostratus)', startX + 30, rect.height * 0.65);
+                    ctx.fillText('고층운 (Altostratus)', startX + offsetSpan * 0.45, rect.height * 0.45);
+                    ctx.fillText('권운 (Cirrus)', startX + offsetSpan * 0.75, rect.height * 0.22);
+
+                    ctx.fillStyle = 'rgba(147, 197, 253, 1)';
+                    ctx.font = 'bold 12px Noto Sans KR';
+                    ctx.fillText('지속적인 비 영역 (전선 앞쪽, 넓은 구역)', startX + 70, groundY - 145);
+                    ctx.font = '10px Noto Sans KR';
+                    ctx.fillText('✔ 완만한 경사를 타고 오르는 찬 공기 위 구역', startX + 70, groundY - 128);
+                }
+                
+                // 지상 전선 위치 포인트
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.font = 'bold 12px Noto Sans KR';
+                const fGroundX = frontPositionX * rect.width;
+                ctx.fillText('지상 전선 위치', fGroundX - 35, groundY - 45);
+                ctx.beginPath();
+                ctx.moveTo(fGroundX, groundY);
+                ctx.lineTo(fGroundX, groundY - 35);
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+            } else {
+                // ★ 온대 저기압 평면 뷰 전용 대화형 교안 드로잉
+                const L_x = frontPositionX * rect.width;
+                const L_y = rect.height * 0.35;
+                
+                // 각 대표 기단 텍스트 및 대표 온도 배치
+                // A구역 (한랭전선 서쪽 뒤편)
+                drawTemperatureBadge(4, L_x - rect.width * 0.22, L_y + 60, true);
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 12px Noto Sans KR';
+                ctx.fillText('A구역 (한랭전선 뒤)', L_x - rect.width * 0.22 - 50, L_y + 110);
+                ctx.font = '10px Noto Sans KR';
+                ctx.fillText('북서풍 / 소나기 / 적란운', L_x - rect.width * 0.22 - 50, L_y + 125);
+
+                // B구역 (두 전선 사이 남쪽 따뜻한 기단)
+                drawTemperatureBadge(23, L_x + 50, L_y + 120, false);
+                ctx.fillStyle = '#f87171';
+                ctx.font = 'bold 12px Noto Sans KR';
+                ctx.fillText('B구역 (전선 사이)', L_x + 10, L_y + 170);
+                ctx.font = '10px Noto Sans KR';
+                ctx.fillText('남서풍 / 맑음 / 구름 없음', L_x + 10, L_y + 185);
+
+                // C구역 (온난전선 동쪽 앞편)
+                drawTemperatureBadge(7, L_x + rect.width * 0.28, L_y + 35, true);
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 12px Noto Sans KR';
+                ctx.fillText('C구역 (온난전선 앞)', L_x + rect.width * 0.22, L_y + 85);
+                ctx.font = '10px Noto Sans KR';
+                ctx.fillText('남동풍 / 지속적인 비 / 난층운', L_x + rect.width * 0.22, L_y + 100);
+
+                // 편서풍 표기
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+                ctx.font = 'italic bold 11px Noto Sans KR';
+                ctx.fillText('편서풍의 영향으로 시스템 전체가 서 ➔ 동으로 이동', rect.width * 0.1, 20);
+
+                // ★ [수정 사항] 지상 관측소 그리기 (안내 박스에 의해 가리지 않고 완전하게 보여짐!)
+                const stationX = rect.width * 0.5;
+                const stationY = groundY;
+                
+                // 현재 관측소가 어느 구역에 있는지 실시간 감지
+                const currentSector = getSectorAt(stationX, rect);
+                
+                ctx.save();
+                // 관측소 집 디테일 강화 (조금 더 입체적으로 크게 묘사)
+                ctx.fillStyle = '#f8fafc'; // 깨끗한 화이트톤 벽면
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 1.8;
+                ctx.beginPath();
+                ctx.moveTo(stationX, stationY - 20);
+                ctx.lineTo(stationX - 12, stationY - 10);
+                ctx.lineTo(stationX - 12, stationY);
+                ctx.lineTo(stationX + 12, stationY);
+                ctx.lineTo(stationX + 12, stationY - 10);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 문 그리기
+                ctx.fillStyle = '#475569';
+                ctx.fillRect(stationX - 3.5, stationY - 7, 7, 7);
+                
+                // 빨간 깃대
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(stationX, stationY - 20);
+                ctx.lineTo(stationX, stationY - 36);
+                ctx.stroke();
+
+                // 바람깃발
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.moveTo(stationX, stationY - 36);
+                ctx.lineTo(stationX + 14, stationY - 31);
+                ctx.lineTo(stationX, stationY - 26);
+                ctx.closePath();
+                ctx.fill();
+
+                // 집 위에 '지상 관측소' 고정 핀 텍스트 표출
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 11px Noto Sans KR';
+                ctx.textAlign = 'center';
+                ctx.fillText('지상 관측소', stationX, stationY - 45);
+                ctx.restore();
+
+                // ★ 가상 관측소 실시간 상태 분석 박스 (HUD)를 HTML 오버레이에서 연동 업데이트 (기압 데이터 없음)
+                const hudEl = document.getElementById('station-hud');
+                if (hudEl) {
+                    const locEl = document.getElementById('hud-location');
+                    const windEl = document.getElementById('hud-wind');
+                    const tempEl = document.getElementById('hud-temp');
+                    const weatherEl = document.getElementById('hud-weather');
+
+                    let windStr = '';
+                    let tempStr = '';
+                    let weatherStr = '';
+                    let sectorColorClass = '';
+                    let tempColorClass = '';
+                    let sectorName = '';
+                    
+                    if (currentSector === 'A') {
+                        windStr = '북서풍 (NW) ➔';
+                        tempStr = '낮음 (4°C)';
+                        weatherStr = '소나기 / 적란운';
+                        sectorColorClass = 'text-blue-400';
+                        tempColorClass = 'text-blue-400';
+                        sectorName = 'A 구역 (한랭전선 뒤쪽)';
+                    } else if (currentSector === 'B') {
+                        windStr = '남서풍 (SW) ➔';
+                        tempStr = '높음 (23°C)';
+                        weatherStr = '맑음 (구름 없음)';
+                        sectorColorClass = 'text-red-400';
+                        tempColorClass = 'text-red-400';
+                        sectorName = 'B 구역 (전선 사이)';
+                    } else {
+                        windStr = '남동풍 (SE) ➔';
+                        tempStr = '낮음 (7°C)';
+                        weatherStr = '지속적인 비 / 난층운';
+                        sectorColorClass = 'text-sky-400';
+                        tempColorClass = 'text-sky-400';
+                        sectorName = 'C 구역 (온난전선 앞쪽)';
+                    }
+                    
+                    locEl.textContent = sectorName;
+                    locEl.className = `font-bold ${sectorColorClass}`;
+                    windEl.textContent = windStr;
+                    tempEl.textContent = tempStr;
+                    tempEl.className = `font-bold ${tempColorClass}`;
+                    weatherEl.textContent = weatherStr;
+                }
+            }
+            
+            ctx.restore();
+        }
+
+        // --- 9. 지상 전선 일러스트 기호 동적 렌더링 ---
+        function renderFrontSymbol() {
+            const container = document.getElementById('front-symbol-container');
+            container.innerHTML = ''; 
+            
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("width", "120");
+            svg.setAttribute("height", "24");
+            svg.setAttribute("class", "inline-block");
+
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", "0");
+            line.setAttribute("y1", "12");
+            line.setAttribute("x2", "120");
+            line.setAttribute("y2", "12");
+            line.setAttribute("stroke-width", "4");
+
+            if (currentFront === 'cold') {
+                line.setAttribute("stroke", "#3b82f6");
+                svg.appendChild(line);
+
+                for (let i = 0; i < 3; i++) {
+                    const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                    const startX = 25 + i * 35;
+                    poly.setAttribute("points", `${startX},12 ${startX+10},12 ${startX+5},4`);
+                    poly.setAttribute("fill", "#3b82f6");
+                    svg.appendChild(poly);
+                }
+            } else if (currentFront === 'warm') {
+                line.setAttribute("stroke", "#ef4444");
+                svg.appendChild(line);
+
+                for (let i = 0; i < 3; i++) {
+                    const arc = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    const startX = 20 + i * 35;
+                    arc.setAttribute("d", `M ${startX} 12 A 5 5 0 0 1 ${startX + 10} 12`);
+                    arc.setAttribute("fill", "#ef4444");
+                    svg.appendChild(arc);
+                }
+            } else {
+                // 온대 저기압일 때는 혼합 전선 형태의 수평 심볼
+                line.setAttribute("stroke", "#6366f1");
+                svg.appendChild(line);
+
+                // 파란 삼각형 + 빨간 반원 교대 드로잉
+                const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                poly.setAttribute("points", "30,12 40,12 35,4");
+                poly.setAttribute("fill", "#3b82f6");
+                svg.appendChild(poly);
+
+                const arc = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                arc.setAttribute("d", "M 70 12 A 5 5 0 0 1 80 12");
+                arc.setAttribute("fill", "#ef4444");
+                svg.appendChild(arc);
+            }
+
+            container.appendChild(svg);
+        }
+
+        // --- 10. 인터랙션 및 상태 조정 제어판 기능 ---
+        
+        // 10.1 한랭/온난/온대 저기압 탭 전환
+        function switchFront(type) {
+            currentFront = type;
+            
+            const btnCold = document.getElementById('btn-tab-cold');
+            const btnWarm = document.getElementById('btn-tab-warm');
+            const btnCyclone = document.getElementById('btn-tab-cyclone');
+            
+            const title = document.getElementById('info-front-title');
+            const desc = document.getElementById('info-front-desc');
+            const dragGuide = document.getElementById('drag-guide');
+            
+            // 미터 제어 변수
+            const label1 = document.getElementById('label-meter-1');
+            const label2 = document.getElementById('label-meter-2');
+            const label3 = document.getElementById('label-meter-3');
+            const meterSlope = document.getElementById('meter-slope');
+            const barSlope = document.getElementById('bar-slope');
+            const meterCloud = document.getElementById('meter-cloud');
+            const barCloud = document.getElementById('bar-cloud');
+            const meterRain = document.getElementById('meter-rain');
+            const barRain = document.getElementById('bar-rain');
+
+            // 온대 저기압용 테이블 및 기본 테이블 제어
+            const panelCycloneTable = document.getElementById('panel-cyclone-table');
+            const panelGeneralTable = document.getElementById('panel-general-table');
+            const legendNormal = document.getElementById('legend-normal');
+            const legendCyclone = document.getElementById('legend-cyclone');
+            const stationHud = document.getElementById('station-hud');
+
+            // 탭 스타일 정규화 함수
+            btnCold.className = "px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 shadow-md flex items-center gap-1.5 bg-slate-700 text-slate-300 hover:bg-slate-600";
+            btnWarm.className = "px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 shadow-md flex items-center gap-1.5 bg-slate-700 text-slate-300 hover:bg-slate-600";
+            btnCyclone.className = "px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 shadow-md flex items-center gap-1.5 bg-slate-700 text-slate-300 hover:bg-slate-600";
+
+            panelCycloneTable.classList.add('hidden');
+            panelGeneralTable.classList.remove('hidden');
+            legendNormal.classList.remove('hidden');
+            legendCyclone.classList.add('hidden');
+            stationHud.classList.add('hidden'); // 온대 저기압 외에는 숨김
+
+            if (type === 'cold') {
+                btnCold.className = "px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 shadow-md flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-500";
+                
+                title.textContent = "한랭 전선 (Cold Front)";
+                title.className = "text-2xl font-black text-blue-400 mb-2";
+                desc.textContent = "찬 기단이 따뜻한 기단 밑으로 빠르게 파고들면서 형성됩니다. 경사면이 급하여 따뜻한 공기가 강하게 상승해 적운형 구름을 만들고, 전선 뒤쪽의 좁은 지역에 소나기성 비를 내립니다.";
+                dragGuide.innerHTML = `<i data-lucide="hand" class="w-3.5 h-3.5"></i> 마우스로 화면을 클릭하거나 드래그하여 찬 기단 경계면(전선 위치)을 조절해 보세요.`;
+
+                label1.textContent = "전선면의 경사도";
+                meterSlope.textContent = "매우 급함 (약 1:50)";
+                meterSlope.className = "text-blue-400 font-bold";
+                barSlope.style.width = "85%";
+                barSlope.className = "bg-blue-500 h-full transition-all duration-500";
+
+                label2.textContent = "구름의 종류";
+                meterCloud.textContent = "적운형 (적란운)";
+                meterCloud.className = "text-cyan-400 font-bold";
+                barCloud.style.width = "90%";
+                
+                label3.textContent = "강수 지역 및 강도";
+                meterRain.textContent = "전선 뒤 / 좁은 구역 소나기";
+                meterRain.className = "text-indigo-400 font-bold";
+                barRain.style.width = "85%";
+                barRain.className = "bg-indigo-500 h-full transition-all duration-500";
+
+                targetFrontPositionX = 0.45;
+            } else if (type === 'warm') {
+                btnWarm.className = "px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 shadow-md flex items-center gap-1.5 bg-red-600 text-white hover:bg-red-500";
+                
+                title.textContent = "온난 전선 (Warm Front)";
+                title.className = "text-2xl font-black text-orange-400 mb-2";
+                desc.textContent = "따뜻한 기단이 찬 기단 위를 타고 오르며 형성됩니다. 경사면이 매우 완만하여 전선 앞쪽의 넓은 지역에 장시간 지속적인 비(이슬비)가 내리며, 완만한 구름층이 형성됩니다.";
+                dragGuide.innerHTML = `<i data-lucide="hand" class="w-3.5 h-3.5"></i> 마우스로 화면을 클릭하거나 드래그하여 전선면 시작 위치를 임의로 교체해 보세요.`;
+
+                label1.textContent = "전선면의 경사도";
+                meterSlope.textContent = "매우 완만함 (약 1:150)";
+                meterSlope.className = "text-orange-400 font-bold";
+                barSlope.style.width = "25%";
+                barSlope.className = "bg-orange-500 h-full transition-all duration-500";
+
+                label2.textContent = "구름의 종류";
+                meterCloud.textContent = "층운형 (난층운, 고층운, 권운)";
+                meterCloud.className = "text-emerald-400 font-bold";
+                barCloud.style.width = "50%";
+
+                label3.textContent = "강수 지역 및 강도";
+                meterRain.textContent = "전선 앞 / 넓은 구역 지속적인 비";
+                meterRain.className = "text-sky-400 font-bold";
+                barRain.style.width = "55%";
+                barRain.className = "bg-sky-400 h-full transition-all duration-500";
+
+                targetFrontPositionX = 0.35;
+            } else {
+                // ★ 온대 저기압 전용 UI 연결
+                btnCyclone.className = "px-3.5 py-2 rounded-lg font-bold text-xs md:text-sm transition-all duration-200 shadow-md flex items-center gap-1.5 bg-indigo-600 text-white hover:bg-indigo-500";
+                
+                title.textContent = "온대 저기압 (Temperate Cyclone)";
+                title.className = "text-2xl font-black text-indigo-400 mb-2";
+                desc.textContent = "중위도에서 발생하며 한랭 전선과 온난 전선을 동반하는 대표 저기압입니다. 바람이 저기압 중심으로 반시계 방향으로 회전하며 불어 들어가 전선면 뒤와 앞쪽에 비를 동반합니다.";
+                dragGuide.innerHTML = `<i data-lucide="hand" class="w-3.5 h-3.5"></i> **[오개념 타파 핵심 활동]** 온대저기압 시스템을 좌우로 드래그해 보세요! 중앙 관측소의 바람과 기온 변화가 실시간으로 연동되어 표시됩니다.`;
+
+                label1.textContent = "저기압 중심부 기압";
+                meterSlope.textContent = "996 hPa (발달 중)";
+                meterSlope.className = "text-indigo-400 font-bold";
+                barSlope.style.width = "70%";
+                barSlope.className = "bg-indigo-500 h-full transition-all duration-500";
+
+                label2.textContent = "바람의 회전 방향";
+                meterCloud.textContent = "반시계 방향 수렴 (북반구)";
+                meterCloud.className = "text-cyan-400 font-bold";
+                barCloud.style.width = "100%";
+
+                label3.textContent = "기압계 이동 성향";
+                meterRain.textContent = "서 ➔ 동 이동 (편서풍대)";
+                meterRain.className = "text-amber-400 font-bold";
+                barRain.style.width = "80%";
+                barRain.className = "bg-amber-500 h-full transition-all duration-500";
+
+                // 온대 저기압 비교 테이블 및 가이드 HUD 드러내기
+                panelCycloneTable.classList.remove('hidden');
+                panelGeneralTable.classList.add('hidden');
+                legendNormal.classList.add('hidden');
+                legendCyclone.classList.remove('hidden');
+                stationHud.classList.remove('hidden'); // 가상 관측소 안내창 표출
+
+                targetFrontPositionX = 0.35;
+            }
+
+            lucide.createIcons();
+            renderFrontSymbol();
+            resetSimulation();
+        }
+
+        // 10.2 일시정지 / 재생 토글
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            const btnPlay = document.getElementById('btn-play');
+            const iconPlay = document.getElementById('icon-play');
+            const textPlay = document.getElementById('text-play');
+
+            if (isPlaying) {
+                btnPlay.className = "bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-md";
+                iconPlay.setAttribute("data-lucide", "pause");
+                textPlay.textContent = "일시정지";
+            } else {
+                btnPlay.className = "bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-md";
+                iconPlay.setAttribute("data-lucide", "play");
+                textPlay.textContent = "재개";
+            }
+            lucide.createIcons();
+        }
+
+        // 10.3 시뮬레이션 리셋
+        function resetSimulation() {
+            cloudParticles = [];
+            rainParticles = [];
+            initParticles();
+        }
+
+        // 10.4 환경 변수 조절 슬라이더 연결
+        function updateSpeed(val) {
+            speedMultiplier = parseFloat(val);
+            document.getElementById('val-speed').textContent = val + 'x';
+        }
+
+        // 강수 밀도 라벨 개선
+        function updateIntensity(val) {
+            densityMultiplier = parseFloat(val);
+            const label = document.getElementById('val-intensity');
+            if (val <= 0.8) label.textContent = '약함 (보슬비/약한 눈)';
+            else if (val <= 1.4) label.textContent = '보통 (일반적인 비)';
+            else if (val <= 2.0) label.textContent = '강함 (확실하게 보임)';
+            else label.textContent = '매우 강함 (장대비/폭설)';
+        }
+
+        // 10.5 가이드 라인 토글 함수
+        function toggleGuide(type) {
+            if (type === 'wind') showWind = document.getElementById('chk-wind-vector').checked;
+            if (type === 'temp') showTemp = document.getElementById('chk-temp-zone').checked;
+            if (type === 'anno') showAnno = document.getElementById('chk-annotations').checked;
+        }
+
+        // 10.6 눈/비 강수 상태 변경
+        function changePrecipType(type) {
+            precipitationType = type;
+            const btnRain = document.getElementById('btn-precip-rain');
+            const btnSnow = document.getElementById('btn-precip-snow');
+
+            if (type === 'rain') {
+                btnRain.className = "px-2.5 py-1 rounded-md text-xs font-bold transition-all bg-indigo-600 text-white shadow";
+                btnSnow.className = "px-2.5 py-1 rounded-md text-xs font-bold transition-all bg-slate-700 text-slate-300 hover:bg-slate-600";
+            } else {
+                btnSnow.className = "px-2.5 py-1 rounded-md text-xs font-bold transition-all bg-sky-600 text-white shadow";
+                btnRain.className = "px-2.5 py-1 rounded-md text-xs font-bold transition-all bg-slate-700 text-slate-300 hover:bg-slate-600";
+            }
+            rainParticles = []; 
+        }
+
+        // --- 11. 직접 전선을 마우스/터치로 끄는 기능 구현 ---
+        function handleInteractionStart(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clickX = clientX - rect.left;
+            
+            targetFrontPositionX = Math.max(0.15, Math.min(0.85, clickX / rect.width));
+            isDragging = true;
+        }
+
+        // 드래그 중 실시간 바인딩
+        function handleInteractionMove(e) {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const moveX = clientX - rect.left;
+            
+            targetFrontPositionX = Math.max(0.15, Math.min(0.85, moveX / rect.width));
+        }
+
+        function handleInteractionEnd() {
+            isDragging = false;
+        }
+
+        canvas.addEventListener('mousedown', handleInteractionStart);
+        canvas.addEventListener('mousemove', handleInteractionMove);
+        window.addEventListener('mouseup', handleInteractionEnd);
+
+        canvas.addEventListener('touchstart', handleInteractionStart, { passive: true });
+        canvas.addEventListener('touchmove', handleInteractionMove, { passive: true });
+        window.addEventListener('touchend', handleInteractionEnd);
+
+
+        // --- 12. 개념 퀴즈 엔진 ---
+        const quizQuestions = [
+            {
+                q: "한랭 전선이 통과하고 난 직후, 해당 관측 지역의 기온은 보통 어떻게 변할까요?",
+                options: ["찬 공기가 밀려와 기온이 빠르게 하강한다.", "따뜻한 공기가 머물러 기온이 상승한다.", "구름이 걷히며 밤낮 모두 기온이 올라간다.", "지속적인 다습 작용으로 기온이 일정하게 유지된다."],
+                answer: 0,
+                hint: "한랭 전선은 찬 공기가 밀고 들어오는 전선이므로, 전선이 통과하면 기온이 큰 폭으로 떨어집니다!"
+            },
+            {
+                q: "온난 전선의 완만한 경사를 타고 올라가는 성향에 의해 전선 앞쪽에 형성되는 주요 강수 형태는 무엇인가요?",
+                options: ["좁은 구역에 내리는 격렬한 소나기", "넓은 구역에 장시간 지속적으로 내리는 이슬비(약한 비)", "강한 회오리를 동반한 대형 토네이도", "전선면 상공에 머무르며 내리지 않는 고공 우박"],
+                answer: 1,
+                hint: "온난 전선은 상승 기류가 완만하여 층운형 구름이 생기며, 전선 앞쪽 넓은 구역에 부드럽고 긴 비를 내립니다."
+            },
+            {
+                q: "오개념 바로잡기: 한랭 전선과 온난 전선의 올바른 강수 구역 매칭은 무엇인가요?",
+                options: [
+                    "한랭 전선: 전선 앞쪽 넓은 구역 / 온난 전선: 전선 뒤쪽 좁은 구역",
+                    "한랭 전선: 전선 뒤쪽 좁은 구역 / 온난 전선: 전선 앞쪽 넓은 구역",
+                    "두 전선 모두 따뜻한 기단 중심부에만 소나기가 내린다.",
+                    "두 전선 모두 경계선 바로 정중앙 선 위에만 일직선으로 비가 내린다."
+                ],
+                answer: 1,
+                hint: "기억하세요! 한랭 전선은 뒤쪽(좁은 구역), 온난 전선은 앞쪽(넓은 구역)에 비가 내립니다."
+            },
+            {
+                q: "온대 저기압이 통과할 때, 남쪽 관측 지점에서의 바람 방향 변화 순서로 올바른 것은 무엇일까요?",
+                options: [
+                    "남동풍 ➔ 남서풍 ➔ 북서풍",
+                    "북동풍 ➔ 북서풍 ➔ 남동풍",
+                    "남서풍 ➔ 남동풍 ➔ 북서풍",
+                    "바람 방향은 서쪽에서 동쪽으로 부는 서풍으로 일정하다."
+                ],
+                answer: 0,
+                hint: "온대 저기압의 진행 경로 남쪽 지점은 전선 앞쪽(남동풍) ➔ 전선 사이(남서풍) ➔ 전선 뒤쪽(북서풍) 순으로 바람의 방향이 바뀝니다!"
+            }
+        ];
+
+        let currentQuizIndex = 0;
+        let quizScore = 0;
+
+        function openQuiz() {
+            document.getElementById('quiz-modal').classList.remove('hidden');
+            resetQuiz();
+        }
+
+        function closeQuiz() {
+            document.getElementById('quiz-modal').classList.add('hidden');
+        }
+
+        function startQuiz() {
+            document.getElementById('quiz-setup').classList.add('hidden');
+            document.getElementById('quiz-question-container').classList.remove('hidden');
+            showQuizQuestion();
+        }
+
+        function showQuizQuestion() {
+            const questionData = quizQuestions[currentQuizIndex];
+            document.getElementById('quiz-progress').textContent = `문제 ${currentQuizIndex + 1} / ${quizQuestions.length}`;
+            document.getElementById('quiz-score').textContent = `현재 점수: ${quizScore}`;
+            document.getElementById('quiz-question').textContent = questionData.q;
+            
+            const optionsBox = document.getElementById('quiz-options');
+            optionsBox.innerHTML = ''; 
+
+            questionData.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left bg-slate-700 hover:bg-slate-600 text-slate-100 font-medium py-3 px-4 rounded-lg transition-colors border border-slate-600 flex justify-between items-center text-sm";
+                btn.innerHTML = `<span>${idx + 1}. ${opt}</span>`;
+                btn.onclick = () => submitQuizAnswer(idx, btn);
+                optionsBox.appendChild(btn);
+            });
+
+            document.getElementById('quiz-feedback').classList.add('hidden');
+            document.getElementById('btn-next-quiz').classList.add('hidden');
+        }
+
+        function submitQuizAnswer(selectedIdx, clickedButton) {
+            const questionData = quizQuestions[currentQuizIndex];
+            const optionsBox = document.getElementById('quiz-options');
+            const feedbackBox = document.getElementById('quiz-feedback');
+            
+            Array.from(optionsBox.children).forEach(btn => btn.disabled = true);
+
+            if (selectedIdx === questionData.answer) {
+                clickedButton.className = "w-full text-left bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg border border-emerald-500 flex justify-between items-center text-sm shadow-md";
+                clickedButton.innerHTML += `<i data-lucide="check-circle" class="w-5 h-5 text-emerald-300"></i>`;
+                
+                feedbackBox.className = "mt-4 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800 text-emerald-300 text-xs leading-relaxed";
+                feedbackBox.innerHTML = `<strong>정답입니다!</strong> <br>${questionData.hint}`;
+                quizScore += 10;
+            } else {
+                clickedButton.className = "w-full text-left bg-rose-700 text-white font-medium py-3 px-4 rounded-lg border border-rose-500 flex justify-between items-center text-sm";
+                clickedButton.innerHTML += `<i data-lucide="alert-triangle" class="w-5 h-5 text-rose-300"></i>`;
+
+                const correctBtn = optionsBox.children[questionData.answer];
+                correctBtn.className = "w-full text-left bg-emerald-700/60 text-white font-semibold py-3 px-4 rounded-lg border border-emerald-600/70 flex justify-between items-center text-sm";
+                
+                feedbackBox.className = "mt-4 p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-rose-300 text-xs leading-relaxed";
+                feedbackBox.innerHTML = `<strong>아쉽게 오답입니다!</strong> <br>힌트: ${questionData.hint}`;
+            }
+
+            document.getElementById('quiz-score').textContent = `현재 점수: ${quizScore}`;
+            feedbackBox.classList.remove('hidden');
+            document.getElementById('btn-next-quiz').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function nextQuizQuestion() {
+            currentQuizIndex++;
+            if (currentQuizIndex < quizQuestions.length) {
+                showQuizQuestion();
+            } else {
+                document.getElementById('quiz-question-container').classList.add('hidden');
+                document.getElementById('quiz-result-container').classList.remove('hidden');
+                document.getElementById('quiz-final-score').textContent = `최종 점수: ${quizQuestions.length}문제 중 ${quizScore / 10}문제 정답! (${quizScore}점)`;
+            }
+        }
+
+        function resetQuiz() {
+            currentQuizIndex = 0;
+            quizScore = 0;
+            document.getElementById('quiz-setup').classList.remove('hidden');
+            document.getElementById('quiz-question-container').classList.add('hidden');
+            document.getElementById('quiz-result-container').classList.add('hidden');
+        }
+
+
+        // --- 13. 최초 실행 및 브라우저 이벤트 리스너 ---
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            resetSimulation();
+        });
+
+        window.onload = function() {
+            lucide.createIcons();
+            resizeCanvas();
+            initParticles();
+            renderFrontSymbol();
+            
+            // 초기 슬라이더 설정값에 맞게 상태 동기화
+            updateIntensity(document.getElementById('slide-intensity').value);
+            
+            drawSimulation();
+        }
+    </script>
+</body>
+</html>
